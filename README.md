@@ -90,14 +90,14 @@ or:
         ]
         ```
     * Configure path to your `django-wfe` Steps and Workflows definition files (optionally also Decisions,
-    which by default processed as Steps):
+    which by default are processed as Steps):
     
         ``` python
         WFE_STEPS = 'myapp.steps'
         WFE_WORKFLOWS = 'myapp.workflows'
         ```
 
-2. **Optionally** add `django-wfe` URL's to the project's `urlpatterns`  (remember to install `djangorestframework` frist):
+2. **Optionally** add django-wfe URL's to the project's `urlpatterns` in `your_project.urls.py` file (remember to install `djangorestframework` frist):
 
     ``` python
     from django_wfe import urls as wfe_urls
@@ -108,7 +108,7 @@ or:
     ]
     ```
 
-3. Run migration command to create the `django-wfe` models:
+3. Run migration command to create the django-wfe models:
 
         python manage.py migrate
 
@@ -116,7 +116,7 @@ or:
 
 ### Declaring Steps
 
-In the file provided in `WFE_STEPS` define your Steps. The Step is a class inheriting from `django_wfe.steps.Step`, which overrides its `execute()` method with a custom logic. `execute()` generally takes only one parameter `_input`, which is a result of the previously executed task. Note: it is up to you to take care of the `_input` which is received by the Step. The Step executed before this one in the Workflow does not need to follow any schema of an output.
+In the file provided in `WFE_STEPS` define your Steps. The Step is a class inheriting from `django_wfe.steps.Step`, which overrides its `execute()` method with a custom logic. `execute()` generally takes only one parameter `_input`, which is a result of the previously executed task. Please note, it is up to you to take care of the `_input` which is received by the Step. The Step executed before the current one in the Workflow does not necessarily need to follow any schema of its output.
 
 The basic Step implementation could look like:
 
@@ -128,7 +128,7 @@ class Step1(steps.Step):
         # some fancy logic here
 ```
 
-Steps also support exteranal input before conductiong their execution (e.g. User decision, etc.). A need for an external input indicates `UserInputSchema` class defined in the Step definition, which inhterits from `pydantic.BaseModel`, and is used to validate the input before passing it to the Step execution (for the supported syntax and more details see [pydantic][pydantic]). Such input is available in the `execute()` method as `exterernal_input` keyword argument.
+Steps also support exteranal input before conductiong their execution (e.g. User decision, etc.). A need for an external input indicates `UserInputSchema` class defined in the Step definition, which inhterits from `pydantic.BaseModel`, and is used to validate the input before passing it to the Step for execution (for the supported syntax and more details see [pydantic][pydantic]). Such external input is available in the `execute()` method as `exterernal_input` keyword argument.
 
 ``` python 
 from django_wfe import steps
@@ -148,7 +148,7 @@ class Step2(steps.Step):
 Decisions are an abstract concept of the Step, introduced for an easier management of the project. If you declared `WFE_DECISIONS` path in the `settings.py` file, you should define the decisions there, and if not - use `WFE_STEPS` file.
 
 Definition of your Decisions should inherit from `django_wfe.steps.Decision` class. Since Decisions are technically speaking Steps, they may also define `execute()` method, but in their case, much more important is `transition()` method, which defines which node should be executed next.
-`transition()` method takes the same arguments as Step's `execute()` (including `UserInputSchema` declaration), but it should return a integer, representing the index of the next Step to execute. For details plese check [Declaring Workflows] chapter.
+`transition()` method takes the same arguments as Step's `execute()` (including `UserInputSchema` declared external input), but it should return a integer, representing the index of the next Step to execute. For more info please check [Declaring Workflows] chapter.
 
 A minimum implementation of the Decision should look like:
 
@@ -163,7 +163,7 @@ class Decision1(steps.Decision):
 
 ### Declaring Workflows
 
-Workflows (defined in `WFE_WORKFLOWS` file), are classes inheriting form `django_wfe.workflows.Workflow` class, which define DIGRAPH class property. DIGRAPH is a python dict representation of a directed graph. Each key of the DIGRAPH is a graph's node and each value is a list of it's outgoing edges. An order of the edges assigned to the node, corresponds and index returned by the Decision's `transition()` method (in the following example: if the `Decision1.transition()` returns `0`, `Step1` will be executed as the next one, and in case of `1` it will be `Step2`.
+Workflows (defined in `WFE_WORKFLOWS` file), are classes inheriting form `django_wfe.workflows.Workflow` class, which define DIGRAPH class property. DIGRAPH is a python dict representation of a directed graph. Each key of the DIGRAPH is a graph's node and each value is a list of it's outgoing edges. An order of the edges assigned to the node, corresponds an index returned by the Decision's `transition()` method (in the following example: if the `Decision1.transition()` returns `0`, `Step2a` will be executed as the next one, and in case of `1` it will be `Step2b`).
 The beginnning of the workflow should always be marked with `django_wfe.steps.__start__` Step, which supports only one outgoing edge (`transition()` always returns `0`).
 
 ``` python
@@ -181,21 +181,23 @@ class MyWorkflow(workflows.Workflow):
 ```
 
 The above defines a simple Workflow representing the following graph:
+
+```
                         Step2a
                     /           \
 Step1 -> Decision1                Step3
                     \           /
                         Step2b
-      
+```   
 
 ### Running Workflows
 
-**Note:** When starting the project with django-wfe application, the background process, updating the database with the current Steps, Decisions and Workflows will be triggered, so files with the definitions can be changed during the project execution.
+**Note:** When running the project with django-wfe application, the background process, updating the database with the currently available Steps, Decisions and Workflows is triggered, so files with the definitions can be changed during the project execution. By default, an update is executed every 5 seconds, but it can be customized with `WFE_WATCHDOG_INTERVAL` setting. Providing a non-positive value will result in disabling the updating task.
 
 ##### With python functions
 
 There are two functions defined in django-wfe which enable programmic execution and interaction with the Workflows:
-* `oder_workflow_execution()` - a function taking Workflow's database ID as an argument, and starting it's execution in the Dramatiq worker
+* `oder_workflow_execution()` - a function taking Workflow's database ID as an argument, and starting it's execution with the Dramatiq worker as the monitor and executor
 
     ``` python
     from django_wfe import order_workflow_execution
@@ -203,7 +205,7 @@ There are two functions defined in django-wfe which enable programmic execution 
     job_id = order_workflow_execution(workflow_id=1)
     ```
 
-* `provide_external_input()` - In case the Job encounters a Step with an external input required, the Job's execution will be suspended and Job's state will be updated `django_wfe.models.JobState.INPUT_REQUIRED`. This funciton taking Job's database ID, and a python dict as arguments, allows to validate the dictionary against the `UserInputSchema` of the currently executed Step and resume the Job execution. 
+* `provide_external_input()` - In case the Job encounters a Step with an external input required, the Job's execution will be suspended and Job's state will be updated with `django_wfe.models.JobState.INPUT_REQUIRED`. This function, taking Job's database ID and a python dict as arguments, allows to validate the dictionary against the `UserInputSchema` of the currently executed Step, and resume the Job execution. 
     
     ``` python
     from django_wfe import provide_external_input
@@ -217,9 +219,9 @@ There are two functions defined in django-wfe which enable programmic execution 
         provide_external_input(job_id=job.id, external_data=input)
     ```
     
-    **Note:** Currently, there are no hooks whatsoever defined to trigger a callback when a Job requires an external input.
+    **Note:** Currently, there are no hooks whatsoever defined to trigger a callback when a Job encounters a Step requiring an external input.
     
-    **Note:** For now, it is your responsibility to provide a logic populating the external input of the Step (whether it's a form, a API call, or other).
+    **Note:** For now, it is your responsibility to provide a logic populating the external input of the Step (whether it's a Django form, an API call, or other).
 
 ##### With REST API
 
@@ -230,7 +232,8 @@ Workflows and Steps can be inspeced with API calls `{url_prefix}/workflows` and 
 
 ## License
 
-django-wfe is licensed under GNU GENERAL PUBLIC LICENSE v3.0. For details, please check [LICENSE][license].
+**django-wfe** is licensed under GNU GENERAL PUBLIC LICENSE v3.0.
+For details, please check [LICENSE][license].
 
 [example]: https://github.com/geosolutions-it/django-wfe-project
 [django]: http://djangoproject.com/
@@ -243,5 +246,3 @@ django-wfe is licensed under GNU GENERAL PUBLIC LICENSE v3.0. For details, pleas
 [postgres]: https://www.postgresql.org/
 [django_postgres_integration]: https://docs.djangoproject.com/en/3.0/ref/databases/#postgresql-notes
 [psycopg2]: https://pypi.org/project/psycopg2/
-
-

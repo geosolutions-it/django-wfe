@@ -52,6 +52,7 @@ def set_watchdog_on_wdk_models():
 
     from .models import Watchdog
     from .utils import deregister_watchdog, update_wdk_models
+    from .settings import WATCHDOG_INTERVAL
 
     try:
         watchdog = Watchdog.load()
@@ -60,7 +61,7 @@ def set_watchdog_on_wdk_models():
         print("Watchdog singleton cannot be fetched from db.")
         return
 
-    if not watchdog.running:
+    if not watchdog.running and WATCHDOG_INTERVAL > 0:
         # order deregister_watchdog() executions as exit function.
         atexit.register(deregister_watchdog)
 
@@ -69,5 +70,7 @@ def set_watchdog_on_wdk_models():
         watchdog.save()
         # schedule periodic watchdog's execution
         scheduler = BackgroundScheduler(daemon=True)
-        scheduler.add_job(update_wdk_models, "interval", seconds=5)
+        scheduler.add_job(update_wdk_models, "interval", seconds=WATCHDOG_INTERVAL)
         scheduler.start()
+    elif WATCHDOG_INTERVAL <= 0:
+        print(f'Watchdog turned of by WATCHDOG_INTERVAL equal: {WATCHDOG_INTERVAL}')
