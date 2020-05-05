@@ -16,7 +16,7 @@ setup(
     version=django_wfe.__version__,
     url=django_wfe.__url__,
     description=django_wfe.__doc__,
-    long_description=read_file('README.rst'),
+    long_description=read_file('README.md'),
     author=django_wfe.__author__,
     author_email=django_wfe.__email__,
     license=django_wfe.__license__,
