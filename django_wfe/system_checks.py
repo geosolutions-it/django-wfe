@@ -1,15 +1,14 @@
 from django.conf import settings
 from django.core import checks
 
+from .tasks import test_dramatiq
+
 
 REQUIRED_SETTINGS = [
     "WFE_WORKFLOWS",
-    "WFE_STEPS",
 ]
 
-IMPORTANT_OPTIONAL_SETTINGS = [
-    "WFE_DECISIONS",
-]
+IMPORTANT_OPTIONAL_SETTINGS = []
 
 
 # DJANGO-WFE CHECK MESSAGES:
@@ -22,6 +21,18 @@ class MissingSettingsError(checks.Error):
             hint=f'Please add "{setting_name}" to your settings.py file',
             obj=settings,
             id="django_wfe.config.E001",
+            *args,
+            **kwargs,
+        )
+
+
+class DramatiqProblemWarning(checks.Warning):
+    def __init__(self, dramatiq_exception, *args, **kwargs):
+        super().__init__(
+            f"Sending a task to dramatiq finished with {type(dramatiq_exception).__name__}: {dramatiq_exception}",
+            hint=f"Please check dramatiq and the broker are set up and are working correctly",
+            obj=settings,
+            id="django_wfe.dramatiq.W001",
             *args,
             **kwargs,
         )
@@ -56,5 +67,17 @@ def settings_check(app_configs, **kwargs):
             getattr(settings, setting_name)
         except AttributeError:
             errors.append(MissingSettingsInfo(setting_name))
+
+    return errors
+
+
+@checks.register()
+def dramatiq_check(app_configs, **kwargs):
+    errors = []
+
+    try:
+        test_dramatiq.send()
+    except Exception as e:
+        errors.append(DramatiqProblemWarning(e))
 
     return errors
