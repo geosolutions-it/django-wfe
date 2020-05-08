@@ -25,3 +25,8 @@ def process_job(job_id: Union[str, int]):
         raise Exception("Job with provided ID does not exist in the database.")
 
     job.execute()
+
+
+@dramatiq.actor(max_retries=1)
+def test_dramatiq():
+    pass
