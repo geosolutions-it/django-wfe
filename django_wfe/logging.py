@@ -10,8 +10,10 @@ class Tee:
         self.file_name = name
         self.mode = mode
         self.file = None
+
         self.stdout = sys.stdout
         self.stderr = sys.stderr
+
         sys.stdout = self
         sys.stderr = self
 
