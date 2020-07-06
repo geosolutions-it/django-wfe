@@ -203,7 +203,7 @@ python manage.py wfe_watchdog
 ##### With python functions
 
 There are two functions defined in django-wfe which enable programmic execution and interaction with the Workflows:
-* `oder_workflow_execution()` - a function taking Workflow's database ID as an argument, and starting it's execution with the Dramatiq worker as the monitor and executor
+* `order_workflow_execution()` - a function taking Workflow's database ID as an argument, and starting it's execution with the Dramatiq worker as the monitor and executor
 
     ``` python
     from django_wfe import order_workflow_execution
@@ -211,7 +211,7 @@ There are two functions defined in django-wfe which enable programmic execution 
     job_id = order_workflow_execution(workflow_id=1)
     ```
 
-* `provide_external_input()` - In case the Job encounters a Step with an external input required, the Job's execution will be suspended and Job's state will be updated with `django_wfe.models.JobState.INPUT_REQUIRED`. This function, taking Job's database ID and a python dict as arguments, allows to validate the dictionary against the `UserInputSchema` of the currently executed Step, and resume the Job execution. 
+* `provide_external_input()` - In case the Job encounters a Step with an external input required, the Job's execution will be suspended and Job's state will be updated with `django_wfe.models.JobState.INPUT_REQUIRED`. This function, taking Job's database ID and a python dict as arguments, allows to validate the dictionary against the `UserInputSchema` of the currently executed Step, and resume the Job execution.
     
     ``` python
     from django_wfe import provide_external_input
